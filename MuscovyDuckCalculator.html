@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f4f6f8">
+<title>Muscovy Duck Calculator — калькулятор окрасов мускусных уток</title>
+<style>
+:root{color-scheme:light;--bg:#f4f6f8;--card:#fff;--ink:#202833;--muted:#687586;--line:#dce2e8;--accent:#536b8d;--accent2:#eaf0f7;--bar:#718cac}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:auto;padding:28px 18px 56px}h1{font-size:clamp(1.65rem,4vw,2.4rem);line-height:1.15;margin:0 0 8px}.intro{color:var(--muted);margin:0 0 22px;max-width:75ch}
+.parents,.results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}.panel h2{font-size:1.12rem;margin:0 0 14px}
+.gene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.field{min-width:0}.field label{display:block;color:var(--muted);font-size:.84rem;margin:0 0 5px}.field select{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;background:white;color:var(--ink);padding:9px;font:inherit}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 22px}.toolbar button,.result-head button{border:1px solid var(--accent);border-radius:8px;padding:9px 13px;background:var(--accent2);color:#314967;font:inherit;font-weight:600;cursor:pointer}.toolbar button.secondary{background:transparent;border-color:var(--line);color:var(--ink)}
+.results{align-items:start}.result-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 0;border-top:1px solid var(--line)}.result-name{font-weight:600}.genotype{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}.pct{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}.bar{height:6px;background:#edf0f3;border-radius:8px;margin-top:6px;overflow:hidden}.bar span{display:block;height:100%;background:var(--bar)}
+.section-title{font-size:1.2rem;margin:28px 0 10px}.note{font-size:.84rem;color:var(--muted);margin-top:20px}.empty{color:var(--muted);padding:8px 0}
+details{margin-top:18px}summary{cursor:pointer;font-weight:600}.legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.legend div{font-size:.85rem;color:var(--muted)}
+@media(max-width:720px){.parents,.results{grid-template-columns:1fr}}@media(max-width:480px){main{padding:20px 12px 40px}.gene-grid{grid-template-columns:1fr}.panel{padding:14px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Калькулятор окрасов мускусных уток</h1>
+  <p class="intro">Muscovy Duck Calculator. Выберите генотипы селезня и утки — калькулятор рассчитает возможные варианты потомства и их вероятности отдельно для селезней и уток. Страница работает локально, без iframe и внешних библиотек.</p>
+  <div class="parents">
+    <section class="panel"><h2>Селезень ♂</h2><div class="gene-grid" id="sire"></div></section>
+    <section class="panel"><h2>Утка ♀</h2><div class="gene-grid" id="dam"></div></section>
+  </div>
+  <div class="toolbar">
+    <button id="reset" type="button">Сбросить к исходному типу</button>
+    <button id="copy" type="button" class="secondary">Скопировать результаты</button>
+    <button id="save" type="button" class="secondary">Сохранить настройки</button>
+    <button id="load" type="button" class="secondary">Загрузить настройки</button>
+  </div>
+  <div class="results" id="results" aria-live="polite"></div>
+  <details>
+    <summary>Обозначения генов и модель расчёта</summary>
+    <div class="legend" id="legend"></div>
+    <p class="note">В этой самостоятельной версии заложена упрощённая модель независимого наследования перечисленных локусов. Шоколадный локус Ch рассчитан как сцепленный с полом у птиц (самцы ZZ, самки ZW). Для точного совпадения с оригинальной реализацией Kippenjungle необходимо сверить исходную таблицу локусов, правила взаимодействия генов и контрольные скрещивания; результаты этой версии не следует считать полностью верифицированной копией оригинала.</p>
+  </details>
+  <p class="note">Все вычисления выполняются в браузере. Настройки сохраняются только в локальном хранилище этого браузера. Код находится в одном HTML-файле и может редактироваться напрямую.</p>
+</main>
+<script>
+/*
+ * MUSCOVY DUCK CALCULATOR
+ * Gene definitions and phenotype mapping are intentionally kept in this file
+ * so that the calculator can be edited without a build system.
+ */
+const GENES = [
+ {id:"P",name:"White (P)",label:"Белый",alleles:["P","p+"],defaultSire:0,defaultDam:0,dominance:"dominant",phenotype:n=>n===2?"Белый":n===1?"Пегий":""},
+ {id:"B",name:"Barring (B)",label:"Барринг",alleles:["B+","b"],defaultSire:2,defaultDam:2,dominance:"recessive",phenotype:n=>n===0?"Барринг":""},
+ {id:"Br",name:"Brown (Br)",label:"Коричневый / рябой",alleles:["Br+","br"],defaultSire:2,defaultDam:2,dominance:"recessive",phenotype:n=>n===0?"Коричнево-рябой":""},
+ {id:"N",name:"Blue dilution (N)",label:"Голубое разбавление",alleles:["N","n+"],defaultSire:0,defaultDam:0,dominance:"dominant",phenotype:n=>n===2?"Жемчужно-серый":n===1?"Голубой":""},
+ {id:"L",name:"Lavender (L)",label:"Лавандовый",alleles:["L+","l"],defaultSire:2,defaultDam:2,dominance:"recessive",phenotype:n=>n===0?"Лавандовый":""},
+ {id:"Ch",name:"Chocolate (Ch)",label:"Шоколадный (Z-сцепленный)",alleles:["Ch+","ch"],defaultSire:2,defaultDam:1,dominance:"sex-linked-recessive",sexLinked:true,phenotype:n=>n===0?"Шоколадный":""},
+ {id:"F",name:"Faiogeno (F)",label:"Фаиогено / сепия",alleles:["F+","f"],defaultSire:2,defaultDam:2,dominance:"recessive",phenotype:n=>n===0?"Сепия":""},
+ {id:"C",name:"Canizie (C)",label:"Белоголовый",alleles:["C","c+"],defaultSire:0,defaultDam:0,dominance:"dominant",phenotype:n=>n>0?"Белоголовый":""},
+ {id:"D",name:"Pied Duclair (D)",label:"Пегий Дюклер",alleles:["D+","d"],defaultSire:2,defaultDam:2,dominance:"recessive",phenotype:n=>n===0?"Пегий Дюклер":""}
+];
+const $=s=>document.querySelector(s);
+const state={};
+function genotypeText(g,n,hemi=false){
+ const a=g.alleles[0],b=g.alleles[1];
+ if(hemi)return (n===1?a:b)+"/W";
+ return n===2?a+"/"+a:n===1?a+"/"+b:b+"/"+b;
+}
+function choices(g,sex){
+ const hemi=g.sexLinked&&sex==="dam";
+ const values=hemi?[1,0]:[2,1,0];
+ return values.map(n=>{
+  const label=genotypeText(g,n,hemi);
+  const effect=g.phenotype(hemi?(n===1?1:0):n);
+  return {value:n,label:label+(effect?" — "+effect:"")};
+ });
+}
+function renderParents(){
+ for(const [sex,id] of [["sire","sire"],["dam","dam"]]){
+  const root=$("#"+id);root.innerHTML="";
+  GENES.forEach(g=>{
+   const wrap=document.createElement("div");wrap.className="field";
+   const label=document.createElement("label");label.htmlFor=sex+"-"+g.id;label.textContent=g.name;
+   const select=document.createElement("select");select.id=sex+"-"+g.id;
+   choices(g,sex).forEach(o=>{const opt=document.createElement("option");opt.value=o.value;opt.textContent=o.label;select.append(opt)});
+   select.value=String(sex==="sire"?g.defaultSire:g.defaultDam);
+   select.addEventListener("change",calculate);
+   wrap.append(label,select);root.append(wrap);
+  });
+ }
+}
+function alleleProbability(genotype){return genotype/2;}
+function geneDistribution(g,sire,dam,offspringSex){
+ const p=alleleProbability(sire),out=new Map();
+ const add=(n,prob)=>{if(prob>0)out.set(n,(out.get(n)||0)+prob)};
+ if(g.sexLinked){
+  if(offspringSex==="male"){
+   // A son receives one Z chromosome from each parent.
+   const maternalAllele=dam===1?1:0;
+   add(maternalAllele+1,p);
+   add(maternalAllele,1-p);
+  }else{
+   // A daughter receives her only Z chromosome from the sire.
+   add(1,p);add(0,1-p);
+  }
+ }else{
+  const q=alleleProbability(dam);
+  add(2,p*q);add(1,p*(1-q)+(1-p)*q);add(0,(1-p)*(1-q));
+ }
+ return [...out.entries()];
+}
+function phenotypeFor(genotypes){
+ const effects=[];
+ let base="Обычный (дикий тип)";
+ const get=id=>genotypes[id]??0;
+ if(get("P")===2)return {name:"Белый",base:"Белый",genotype:genotypes};
+ if(get("N")===2)base="Жемчужно-серый";
+ else if(get("N")===1)base="Голубой";
+ if(get("L")===0)base=base==="Голубой"?"Светло-лавандовый":base==="Жемчужно-серый"?"Серебристо-лавандовый":"Лавандовый";
+ if(get("Ch")===0){
+  if(get("L")===0&&get("N")===2)base="Палевый";
+  else if(get("L")===0&&get("N")===1)base="Кремово-сиреневый";
+  else if(get("L")===0)base="Кремовый";
+  else if(get("N")===2)base="Палевый";
+  else if(get("N")===1)base="Сиреневый";
+  else base="Шоколадный";
+ }
+ if(get("F")===0)base="Фаиогено / сепия";
+ if(get("P")===1)effects.push("пегий");
+ if(get("B")===0)effects.push("барринг");
+ if(get("Br")===0)effects.push("коричнево-рябой");
+ if(get("C")>0)effects.push("белоголовый");
+ if(get("D")===0)effects.push("пегий Дюклер");
+ return {name:base+(effects.length?" · "+effects.join(", "):""),base,genotype:genotypes};
+}
+function enumerate(sex){
+ let combinations=[{genes:{},p:1}];
+ for(const g of GENES){
+  const sire=Number($("#sire-"+g.id).value),dam=Number($("#dam-"+g.id).value);
+  const dist=geneDistribution(g,sire,dam,sex),next=[];
+  for(const c of combinations)for(const [n,p] of dist){
+   next.push({genes:{...c.genes,[g.id]:n},p:c.p*p});
+  }
+  combinations=next;
+ }
+ const grouped=new Map();
+ for(const c of combinations){
+  const ph=phenotypeFor(c.genes),key=ph.name;
+  if(!grouped.has(key))grouped.set(key,{name:key,base:ph.base,p:0,genotypes:[]});
+  const item=grouped.get(key);item.p+=c.p;
+  if(item.genotypes.length<4)item.genotypes.push(GENES.map(g=>g.id+":"+genotypeText(g,c.genes[g.id],false)).join(" · "));
+ }
+ return [...grouped.values()].filter(x=>x.p>1e-8).sort((a,b)=>b.p-a.p);
+}
+function resultMarkup(title,items){
+ const section=document.createElement("section");section.className="panel";
+ const h=document.createElement("h2");h.textContent=title;section.append(h);
+ if(!items.length){const p=document.createElement("p");p.className="empty";p.textContent="Нет результатов";section.append(p);return section}
+ items.forEach(item=>{
+  const row=document.createElement("div");row.className="result-row";
+  const left=document.createElement("div");
+  const name=document.createElement("div");name.className="result-name";name.textContent=item.name;
+  const gt=document.createElement("div");gt.className="genotype";gt.textContent="Вероятность фенотипа";
+  const bar=document.createElement("div");bar.className="bar";const fill=document.createElement("span");fill.style.width=(item.p*100)+"%";bar.append(fill);
+  left.append(name,gt,bar);
+  const pct=document.createElement("div");pct.className="pct";pct.textContent=(item.p*100).toFixed(2)+"%";
+  row.append(left,pct);section.append(row);
+ });
+ return section;
+}
+function calculate(){
+ const root=$("#results");root.innerHTML="";
+ root.append(resultMarkup("Сыновья ♂",enumerate("male")),resultMarkup("Дочери ♀",enumerate("female")));
+}
+function renderLegend(){
+ $("#legend").innerHTML=GENES.map(g=>"<div><b>"+g.id+"</b> — "+g.label+" ("+g.alleles.join(" / ")+")</div>").join("");
+}
+function settings(){
+ const result={version:1,parents:{sire:{},dam:{}}};
+ for(const sex of ["sire","dam"])for(const g of GENES)result.parents[sex][g.id]=Number($("#"+sex+"-"+g.id).value);
+ return result;
+}
+function applySettings(data){
+ if(!data||!data.parents)return;
+ for(const sex of ["sire","dam"])for(const g of GENES){
+  const value=data.parents[sex]?.[g.id],select=$("#"+sex+"-"+g.id);
+  if(value!==undefined&&[...select.options].some(o=>Number(o.value)===Number(value)))select.value=String(value);
+ }
+ calculate();
+}
+$("#reset").addEventListener("click",()=>{renderParents();calculate()});
+$("#copy").addEventListener("click",async()=>{
+ const lines=["Мускусные утки — расчёт потомства"];
+ for(const [sex,title] of [["male","Сыновья"],["female","Дочери"]]){
+  lines.push("",title);
+  enumerate(sex).forEach(x=>lines.push(x.name+" — "+(x.p*100).toFixed(2)+"%"));
+ }
+ try{await navigator.clipboard.writeText(lines.join("\n"));$("#copy").textContent="Скопировано";setTimeout(()=>$("#copy").textContent="Скопировать результаты",1500)}
+ catch(e){alert(lines.join("\n"))}
+});
+$("#save").addEventListener("click",()=>{
+ localStorage.setItem("muscovyDuckCalculatorSettings",JSON.stringify(settings()));
+ $("#save").textContent="Сохранено";setTimeout(()=>$("#save").textContent="Сохранить настройки",1500);
+});
+$("#load").addEventListener("click",()=>{
+ try{const data=JSON.parse(localStorage.getItem("muscovyDuckCalculatorSettings")||"null");if(!data){alert("Сохранённых настроек нет.");return}applySettings(data)}
+ catch(e){alert("Не удалось прочитать сохранённые настройки.")}
+});
+renderParents();renderLegend();calculate();
+</script>
+</body>
+</html>
