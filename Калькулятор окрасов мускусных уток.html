@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Калькулятор окрасов мускусных уток</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f3f4f7;--panel:#fff;--ink:#1d2430;--mute:#5b6577;--line:#d7dbe4;--accent:#5b4b8a;--bar:#7d6fb0;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171e;--panel:#1d222c;--ink:#e8eaf0;--mute:#a0a8b8;--line:#323a49;--accent:#b3a6e0;--bar:#8e80c4;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171e;--panel:#1d222c;--ink:#e8eaf0;--mute:#a0a8b8;--line:#323a49;--accent:#b3a6e0;--bar:#8e80c4;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Onest,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:clamp(1.6rem,4.5vw,2.4rem);line-height:1.15;margin:8px 0 8px;font-weight:700}
+.lead{color:var(--mute);max-width:60ch;margin:0 0 20px}
+.parents,.results{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:640px){.parents,.results{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.panel h2{font-size:1.1rem;margin:0 0 12px}
+.row{display:grid;gap:4px;margin-bottom:10px}
+label{font-size:.88rem;color:var(--mute)}
+select{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button{padding:9px 16px;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);font:inherit;font-weight:600;cursor:pointer}
+.actions{margin:16px 0}
+.results h2{font-size:1.1rem;margin:0 0 6px}
+.item{display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.vis{background:var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;aspect-ratio:1}
+.vis svg{width:80%;height:80%}
+.vis img{width:100%;height:100%;object-fit:cover;cursor:zoom-in}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.card .vis{width:56px}
+.card h3{font-size:1rem;margin:0}
+.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.t{position:relative;width:72px}
+.t img{width:72px;height:72px;object-fit:cover;border-radius:8px;cursor:zoom-in;display:block}
+.t button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;padding:0;border-radius:50%;line-height:1;background:var(--panel)}
+.empty{color:var(--mute);font-size:.85rem}
+dialog{border:0;padding:0;background:transparent;max-width:92vw}
+dialog img{max-width:92vw;max-height:84vh;border-radius:10px;display:block;cursor:zoom-out}
+h2.sec{font-size:1.2rem;margin:28px 0 6px}
+.bar{height:6px;background:var(--line);border-radius:3px;margin-top:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--bar)}
+.pct{font-variant-numeric:tabular-nums;font-weight:600}
+.note{font-size:.85rem;color:var(--mute);margin-top:18px;max-width:75ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Калькулятор окрасов мускусных уток</h1>
+  <p class="lead">Выберите генотипы селезня и утки. Окрасы утят и их вероятность пересчитываются сразу.</p>
+  <div class="parents">
+    <section class="panel"><h2>Селезень ♂</h2><div id="sire"></div></section>
+    <section class="panel"><h2>Утка ♀</h2><div id="dam"></div></section>
+  </div>
+  <div class="actions"><button type="button" id="reset">Сбросить к дикому типу</button></div>
+  <div class="results" id="res"></div>
+  <h2 class="sec">Окрасы и фото</h2>
+  <p class="lead" id="st">Здесь будут фото окрасов, которые добавит владелец страницы.</p>
+  <div class="gal" id="gal"></div>
+  <dialog id="lb"><img alt=""></dialog>
+  <p class="note">Гены считаются независимыми друг от друга. Набор генов и названия окрасов повторяют настройки калькулятора kippenjungle.nl, генетические данные не проверялись независимо. Белая утка (P/P) скрывает остальные окрасы, поэтому для неё показан только белый. Шоколадный окрас сцеплен с полом, поэтому сыновья и дочери считаются отдельно.</p>
+</div>
+<script>
+const HINT={white:'белый (White)',pied:'пегий (Pied)',barred:'барринг (Barred)',rippled:'рябой (Rippled)',pearl:'жемчужно-серый (Pearl-grey)',blue:'голубой (Blue)',lav:'лавандовый (Lavender)',choc:'шоколадный (Chocolate)',sepia:'сепия (Sepia)',wh:'белоголовый (White-head)',pbd:'пегий Дюклер (Piebald)'};
+const GENES=[
+{id:'P',n:'Белый (P)',al:['P','p+'],w:0,c:n=>n==2?'white':n==1?'pied':''},
+{id:'B',n:'Барринг (B)',al:['B+','b'],w:2,r:1,c:n=>n==0?'barred':''},
+{id:'Br',n:'Коричнево-рябой (Br)',al:['Br+','br'],w:2,r:1,c:n=>n==0?'rippled':''},
+{id:'N',n:'Голубое разбавление (N)',al:['N','n+'],w:0,c:n=>n==2?'pearl':n==1?'blue':''},
+{id:'L',n:'Лавандовый (L)',al:['L+','l'],w:2,r:1,c:n=>n==0?'lav':''},
+{id:'Ch',n:'Шоколадный (Ch), сцеплен с полом',al:['Ch+','ch'],w:2,r:1,sl:1,c:n=>n==0?'choc':''},
+{id:'F',n:'Сепия / Фаиогено (F)',al:['F+','f'],w:2,r:1,c:n=>n==0?'sepia':''},
+{id:'C',n:'Белоголовый / Canizie (C)',al:['C','c+'],w:0,c:n=>n>=1?'wh':''},
+{id:'D',n:'Пегий Дюклер (D)',al:['D+','d'],w:2,r:1,c:n=>n==0?'pbd':''}
+];
+const COLORS=[['common','Обычный (дикий)','#1c1b1f'],['blue','Голубой','#5d6f8c'],['pearl','Жемчужно-серый','#b9bfc9'],['lav','Лавандовый','#a79bc4'],['choc','Шоколадный','#5a3d2e'],['cream','Кремовый','#e6d3b8'],['lilac','Сиреневый','#9a8aa3'],['buff','Палевый','#c9a46b'],['buffcream','Кремово-палевый','#dcc08f'],['lilaccream','Кремово-сиреневый','#c9bccb'],['lightlav','Светло-лавандовый','#cfc8e0'],['silverlav','Серебристо-лавандовый','#b9b4c9'],['faiogeno','Фаиогено','#8a6a52'],['sepia','Сепия','#7a5a45'],['white','Белый','#f6f6f4']].map(([k,n,c])=>({k,n,c}));
+const BYNAME={};COLORS.forEach(c=>BYNAME[c.n]=c);
+let photos={},canEdit=false,assets=null,db=null;
+const duck=f=>'<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M9 40 3 31l13 5z" fill="'+f+'"/><ellipse cx="28" cy="43" rx="22" ry="12" fill="'+f+'"/><path d="M36 38l9-14" stroke="'+f+'" stroke-width="9" stroke-linecap="round"/><circle cx="46" cy="21" r="9" fill="'+f+'"/><path d="M53 20l10 4-10 4z" fill="#e8a13a"/><circle cx="48" cy="19" r="1.7" fill="#fff"/></svg>';
+const vis=c=>{const ids=photos[c.k]||[];return '<div class="vis">'+(ids.length?'<img class="th" src="/_blob/'+ids[0]+'" alt="'+c.n+'" loading="lazy">':duck(c.c))+'</div>';};
+
+function lab(g,n,hemi){
+  const a=g.al[0],b=g.al[1];
+  const gt=hemi?(n?a:b)+'/–':(n==2?a+'/'+a:n==1?a+'/'+b:b+'/'+b);
+  const k=g.c(n);
+  const t=k?HINT[k]:(g.r&&n==1&&!hemi?'носитель':'дикий тип');
+  return gt+' — '+t;
+}
+function build(){
+  ['m','f'].forEach(side=>{
+    document.getElementById(side=='m'?'sire':'dam').innerHTML=GENES.map(g=>{
+      const hemi=g.sl&&side=='f', vals=hemi?[1,0]:[2,1,0], w=hemi?1:g.w;
+      return '<div class="row"><label for="'+side+'-'+g.id+'">'+g.n+'</label><select id="'+side+'-'+g.id+'">'+
+        vals.map(n=>'<option value="'+n+'"'+(n===w?' selected':'')+'>'+lab(g,n,hemi)+'</option>').join('')+'</select></div>';
+    }).join('');
+  });
+  document.querySelectorAll('select').forEach(s=>s.addEventListener('change',calc));
+}
+function dist(g,x,y,sex){
+  const p=x/2,out={};
+  const add=(n,pr)=>{const k=g.c(n);out[k]=(out[k]||0)+pr;};
+  if(g.sl){
+    if(sex=='m'){add(y+1,p);add(y,1-p);}
+    else{add(1,p);add(0,1-p);}
+  }else{
+    const q=y/2;
+    add(2,p*q);add(1,p*(1-q)+(1-p)*q);add(0,(1-p)*(1-q));
+  }
+  return Object.entries(out).filter(e=>e[1]>0);
+}
+function name(c){
+  if(c.P=='white')return{t:'Белый',base:'Белый'};
+  const blue=c.N=='blue',pearl=c.N=='pearl',lav=c.L=='lav',choc=c.Ch=='choc',sep=c.F=='sepia';
+  let b;
+  if(sep&&(blue||pearl||lav||choc))b='Фаиогено';
+  else if(choc&&lav&&pearl)b='Кремово-палевый';
+  else if(choc&&lav&&blue)b='Кремово-сиреневый';
+  else if(choc&&lav)b='Кремовый';
+  else if(choc&&blue)b='Сиреневый';
+  else if(choc&&pearl)b='Палевый';
+  else if(lav&&blue)b='Светло-лавандовый';
+  else if(lav&&pearl)b='Серебристо-лавандовый';
+  else if(choc)b='Шоколадный';
+  else if(lav)b='Лавандовый';
+  else if(blue)b='Голубой';
+  else if(pearl)b='Жемчужно-серый';
+  else if(sep)b='Сепия';
+  else b='Обычный (дикий)';
+  const ex=[];
+  if(c.P=='pied')ex.push('пегий (Pied)');
+  if(c.B=='barred')ex.push('барринг');
+  if(c.Br=='rippled')ex.push('рябой');
+  if(c.C=='wh')ex.push('белоголовый');
+  if(c.D=='pbd')ex.push('пегий Дюклер');
+  return{t:b+(ex.length?' + '+ex.join(', '):''),base:b};
+}
+function outcomes(sex){
+  let combos=[{c:{},p:1}];
+  GENES.forEach(g=>{
+    const x=+document.getElementById('m-'+g.id).value,y=+document.getElementById('f-'+g.id).value;
+    const d=dist(g,x,y,sex),next=[];
+    combos.forEach(o=>d.forEach(([k,pr])=>next.push({c:Object.assign({},o.c,{[g.id]:k}),p:o.p*pr})));
+    combos=next;
+  });
+  const m={};
+  combos.forEach(o=>{const r=name(o.c);(m[r.t]=m[r.t]||{t:r.t,base:r.base,p:0}).p+=o.p;});
+  return Object.values(m).filter(o=>o.p>0.00005).sort((a,b)=>b.p-a.p);
+}
+function calc(){
+  document.getElementById('res').innerHTML=[['m','Сыновья ♂'],['f','Дочери ♀']].map(([s,title])=>{
+    return '<section class="panel"><h2>'+title+'</h2>'+outcomes(s).map(o=>
+      '<div class="item">'+vis(BYNAME[o.base]||COLORS[0])+'<div>'+o.t+
+      '<div class="bar"><i style="width:'+(o.p*100)+'%"></i></div></div><span class="pct">'+Number((o.p*100).toFixed(2))+'%</span></div>'
+    ).join('')+'</section>';
+  }).join('');
+}
+function gallery(){
+  document.getElementById('gal').innerHTML=COLORS.map(c=>{
+    const th=(photos[c.k]||[]).map(id=>'<div class="t"><img class="th" src="/_blob/'+id+'" alt="'+c.n+'" loading="lazy">'+(canEdit?'<button type="button" data-del="'+id+'" aria-label="Удалить фото">×</button>':'')+'</div>').join('');
+    return '<div class="panel card" data-k="'+c.k+'"><div style="display:flex;gap:10px;align-items:center"><div class="vis">'+duck(c.c)+'</div><h3>'+c.n+'</h3></div><div class="thumbs">'+(th||(canEdit?'':'<span class="empty">Фото пока нет</span>'))+'</div>'+(canEdit?'<button type="button" data-add="'+c.k+'">Добавить фото</button>':'')+'</div>';
+  }).join('');
+}
+function refresh(){calc();gallery();}
+function shrink(file){return new Promise((ok,no)=>{const im=new Image(),u=URL.createObjectURL(file);im.onload=()=>{const s=Math.min(1,1400/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?ok(b):no(new Error('не удалось обработать файл')),'image/jpeg',.86);};im.onerror=()=>no(new Error('это не изображение'));im.src=u;});}
+async function addPhotos(k,files){
+  const st=document.getElementById('st'),ids=[];
+  try{
+    for(const f of files){st.textContent='Загружаю '+(ids.length+1)+' из '+files.length+'…';ids.push((await assets.upload(await shrink(f))).id);}
+    await db.doc('photos/'+k).set({ids:(photos[k]||[]).concat(ids)});
+    st.textContent='Фото добавлено.';
+  }catch(e){st.textContent='Не удалось загрузить фото: '+(e&&e.message||'ошибка')+'.';}
+}
+async function del(k,id){
+  try{await db.doc('photos/'+k).set({ids:(photos[k]||[]).filter(x=>x!==id)});try{await assets.delete(id);}catch(_){}}
+  catch(e){document.getElementById('st').textContent='Не удалось удалить фото.';}
+}
+function pick(k){const i=document.createElement('input');i.type='file';i.accept='image/*';i.multiple=true;i.onchange=()=>{if(i.files.length)addPhotos(k,[...i.files]);};i.click();}
+document.addEventListener('click',e=>{
+  const t=e.target;
+  if(t.matches('img.th')){const lb=document.getElementById('lb');lb.querySelector('img').src=t.src;lb.showModal();return;}
+  if(t.dataset&&t.dataset.add)pick(t.dataset.add);
+  if(t.dataset&&t.dataset.del)del(t.closest('.card').dataset.k,t.dataset.del);
+});
+document.getElementById('lb').addEventListener('click',e=>e.currentTarget.close());
+document.getElementById('reset').addEventListener('click',()=>{build();calc();});
+build();refresh();
+(async()=>{
+  try{
+    if(!window.claude||!claude.use)return;
+    const [a,d,u]=await Promise.all([claude.use('assets'),claude.use('db'),claude.use('user')]);
+    assets=a;db=d;
+    canEdit=!!(a&&d&&u&&await u.canEdit());
+    if(canEdit)document.getElementById('st').textContent='Нажмите «Добавить фото» у нужного окраса. Фото сохраняются на странице и видны всем, у кого она открыта.';
+    if(d)d.collection('photos').onSnapshot(s=>{photos={};s.docs.forEach(x=>{photos[x.id]=(x.data()||{}).ids||[];});refresh();},()=>{});
+    refresh();
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
